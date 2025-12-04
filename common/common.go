@@ -116,6 +116,26 @@ func (p Positions) Extents() (Pos, Pos) {
 	return min, max
 }
 
+func (g Grid) Neighbors(x, y int) Positions {
+	positions := make(Positions, 0, 8)
+
+	for j := y - 1; j <= y+1; j++ {
+		for i := x - 1; i <= x+1; i++ {
+			if !(j == y && i == x) { // don't add x,y
+				if j >= 0 && j < len(g) && i >= 0 && i < len(g[j]) {
+					positions = append(positions, Pos{j, i})
+				}
+			}
+		}
+	}
+
+	return positions
+}
+
+func (g Grid) NeighborPositions(p Pos) Positions {
+	return g.Neighbors(p.X, p.Y)
+}
+
 func (g Grid) Contains(x, y int) bool {
 	if y >= 0 && y < len(g) && x >= 0 && x < len(g[y]) {
 		return true
