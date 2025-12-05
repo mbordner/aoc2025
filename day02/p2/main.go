@@ -6,13 +6,13 @@ package main
 
 import (
 	"fmt"
-	"github.com/mbordner/aoc2025/common/file"
+	"github.com/mbordner/aoc2025/common/files"
 	"strconv"
 	"strings"
 )
 
 func main() {
-	idRanges, _ := file.GetContent("../data.txt")
+	idRanges, _ := files.GetContent("../data.txt")
 
 	sum := uint64(0)
 

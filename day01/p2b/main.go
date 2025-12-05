@@ -7,7 +7,7 @@ package main
 import (
 	"fmt"
 	"github.com/mbordner/aoc2025/common"
-	"github.com/mbordner/aoc2025/common/file"
+	"github.com/mbordner/aoc2025/common/files"
 	"strconv"
 	"strings"
 )
@@ -18,7 +18,7 @@ const (
 
 func main() {
 	replacer := strings.NewReplacer("R", "", "L", "-") // change R to pos int, L to neg int
-	lines, _ := file.GetLines("../data.txt")
+	lines, _ := files.GetLines("../data.txt")
 	dial := 50 // start dial at 50
 	zeros := 0 // zero value counter (count of dial landing on, or passes by value 0)
 	for _, line := range lines {

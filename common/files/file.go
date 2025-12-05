@@ -1,4 +1,4 @@
-package file
+package files
 
 import (
 	"archive/zip"
@@ -79,7 +79,7 @@ func GetContent(filename string) ([]byte, error) {
 	buffer := make([]byte, filesize)
 
 	bytesRead, err := file.Read(buffer)
-	if err != nil {
+	if err != nil && !errors.Is(err, io.EOF) {
 		return nil, err
 	}
 
@@ -88,6 +88,15 @@ func GetContent(filename string) ([]byte, error) {
 	}
 
 	return buffer, nil
+}
+
+// MustGetContent returns the contents for a File or panics on error
+func MustGetContent(filename string) []byte {
+	content, err := GetContent(filename)
+	if err != nil {
+		panic(err)
+	}
+	return content
 }
 
 // GetLines returns lines in a File
@@ -100,6 +109,15 @@ func GetLines(filename string) ([]string, error) {
 	rows := strings.Split(string(buffer), "\n")
 
 	return rows, nil
+}
+
+// MustGetLines returns lines in a files or panics on error
+func MustGetLines(filename string) []string {
+	lines, err := GetLines(filename)
+	if err != nil {
+		panic(err)
+	}
+	return lines
 }
 
 // RemoveFile deletes a File
@@ -119,7 +137,7 @@ func RemoveAll(path string) error {
 	return FS.RemoveAll(path)
 }
 
-// CreateFile opens a file for writing
+// CreateFile opens a files for writing
 func CreateFile(path string) (File, error) {
 	var err error
 	if !filepath.IsAbs(path) {
@@ -131,7 +149,7 @@ func CreateFile(path string) (File, error) {
 	return FS.Create(path)
 }
 
-// OpenFile opens a file for reading
+// OpenFile opens a files for reading
 func OpenFile(path string) (File, error) {
 	var err error
 	if !filepath.IsAbs(path) {
@@ -190,7 +208,7 @@ func WriteContent(filename string, data []byte) error {
 	return nil
 }
 
-// Copy contents of src file to dest file
+// Copy contents of src files to dest files
 func Copy(src, dest string) error {
 	content, err := GetContent(src)
 	if err != nil {
@@ -202,7 +220,7 @@ func Copy(src, dest string) error {
 // RelFileExists return nil, if path is relative to current working directory, and error otherwise
 func RelFileExists(path string) error {
 	if filepath.IsAbs(path) {
-		return fmt.Errorf("illegal file path: %s", path)
+		return fmt.Errorf("illegal files path: %s", path)
 	}
 	cwd, err := os.Getwd()
 	if err != nil {
@@ -213,7 +231,7 @@ func RelFileExists(path string) error {
 		return err
 	}
 	if !strings.HasPrefix(absPath, filepath.Clean(cwd)+string(os.PathSeparator)) {
-		return fmt.Errorf("illegal file path: %s", path)
+		return fmt.Errorf("illegal files path: %s", path)
 	}
 
 	fileInfo, err := FS.Stat(absPath)
@@ -228,7 +246,7 @@ func RelFileExists(path string) error {
 	return nil
 }
 
-// FileExists returns whether a file exists, or error during processing
+// FileExists returns whether a files exists, or error during processing
 func FileExists(path string) bool {
 	val, err := IsDir(path)
 	if err != nil {
@@ -237,7 +255,7 @@ func FileExists(path string) bool {
 	return !val
 }
 
-// DirExists returns whether a file exists, or error during processing
+// DirExists returns whether a files exists, or error during processing
 func DirExists(path string) bool {
 	val, err := IsDir(path)
 	if err != nil {
@@ -388,6 +406,75 @@ func GetDirnames(dir string) ([]string, error) {
 	return names, nil
 }
 
+// Zip zips a directory (srcDirPath) into a zip archive files (destFilePath)
+func Zip(srcDirPath string, destFilePath string) error {
+	var err error
+	var zf File
+	zf, err = CreateFile(destFilePath)
+	if err != nil {
+		return err
+	}
+
+	defer zf.Close()
+
+	zipWriter := zip.NewWriter(zf)
+	defer zipWriter.Close()
+
+	var fileNames []string
+
+	fileNames, err = GetDirEntryNames(srcDirPath, true)
+	if err != nil {
+		return err
+	}
+
+	for _, fileName := range fileNames {
+
+		var relPath string
+		relPath, err = filepath.Rel(srcDirPath, fileName)
+		if err != nil {
+			return err
+		}
+
+		var fileInfo os.FileInfo
+		fileInfo, err = FS.Stat(fileName)
+		if err != nil {
+			return err
+		}
+
+		var header *zip.FileHeader
+		header, err = zip.FileInfoHeader(fileInfo)
+		if err != nil {
+			return err
+		}
+		header.Name = relPath
+		header.Method = zip.Deflate
+
+		var writer io.Writer
+		writer, err = zipWriter.CreateHeader(header)
+		if err != nil {
+			return err
+		}
+
+		var file File
+		file, err = FS.Open(fileName)
+		if err != nil {
+			return err
+		}
+
+		_, err = io.Copy(writer, file)
+		if err != nil {
+			return err
+		}
+
+		err = file.Close()
+		if err != nil {
+			return nil
+		}
+	}
+
+	return nil
+}
+
 // Unzip unzips an archive specified by srcFilePath into destDirPath
 func Unzip(srcFilePath, destDirPath string) error {
 	srcFile, err := OpenFile(srcFilePath)
@@ -426,7 +513,7 @@ func Unzip(srcFilePath, destDirPath string) error {
 
 		// Check for ZipSlip (Directory traversal)
 		if !strings.HasPrefix(path, filepath.Clean(destDirPath)+string(os.PathSeparator)) {
-			return fmt.Errorf("illegal file path: %s", path)
+			return fmt.Errorf("illegal files path: %s", path)
 		}
 
 		if f.FileInfo().IsDir() {

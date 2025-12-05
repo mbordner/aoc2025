@@ -6,7 +6,7 @@ package main
 
 import (
 	"fmt"
-	"github.com/mbordner/aoc2025/common/file"
+	"github.com/mbordner/aoc2025/common/files"
 	"math"
 	"strconv"
 )
@@ -16,7 +16,7 @@ type Digits []int
 const NumOfDigits = 12
 
 func main() {
-	lines, _ := file.GetLines("../data.txt")
+	lines, _ := files.GetLines("../data.txt")
 	jolts := uint64(0)
 
 	for _, line := range lines {

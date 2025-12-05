@@ -2,7 +2,7 @@ package main
 
 import (
 	"fmt"
-	"github.com/mbordner/aoc2025/common/file"
+	"github.com/mbordner/aoc2025/common/files"
 	"strconv"
 )
 
@@ -40,7 +40,7 @@ type instr struct {
 }
 
 func getInstructions(filename string) []instr {
-	lines, _ := file.GetLines(filename)
+	lines, _ := files.GetLines(filename)
 	instructions := make([]instr, 0, len(lines))
 	for _, line := range lines {
 		var i instr

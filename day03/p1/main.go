@@ -2,7 +2,7 @@ package main
 
 import (
 	"fmt"
-	"github.com/mbordner/aoc2025/common/file"
+	"github.com/mbordner/aoc2025/common/files"
 	"math"
 	"strconv"
 )
@@ -10,7 +10,7 @@ import (
 type Bank []int
 
 func main() {
-	lines, _ := file.GetLines("../data.txt")
+	lines, _ := files.GetLines("../data.txt")
 	jolts := 0
 
 	for _, line := range lines {

@@ -3,7 +3,7 @@ package main
 import (
 	"fmt"
 	"github.com/mbordner/aoc2025/common"
-	"github.com/mbordner/aoc2025/common/file"
+	"github.com/mbordner/aoc2025/common/files"
 )
 
 const (
@@ -13,7 +13,7 @@ const (
 )
 
 func main() {
-	lines, _ := file.GetLines("../data.txt")
+	lines, _ := files.GetLines("../data.txt")
 	grid := common.ConvertGrid(lines)
 
 	removed := make(common.Positions, 0, len(grid)*len(grid[0]))
