@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/mbordner/aoc2025/common/array"
 	"log"
+	"math"
 	"strings"
 )
 
@@ -336,6 +337,10 @@ type Pos[T IntNumber] struct {
 	X T
 	Y T
 	Z T
+}
+
+func (p Pos[T]) Distance(p2 Pos[T]) float64 {
+	return math.Sqrt(math.Pow(float64(p2.X-p.X), 2) + math.Pow(float64(p2.Y-p.Y), 2) + math.Pow(float64(p2.Z-p.Z), 2))
 }
 
 func (p Pos[T]) Subtract(o Pos[T]) Pos[T] {
