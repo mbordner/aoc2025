@@ -1,6 +1,8 @@
 package common
 
-import "fmt"
+import (
+	"fmt"
+)
 
 func PopulateStringCombinationsAtLength(results map[string]bool, pickChars string, prefix string, length int) {
 	if length == 0 {
@@ -90,27 +92,38 @@ type Pos struct {
 	X int
 }
 
+func (p Pos) Add(o Pos) Pos {
+	return Pos{p.Y + o.Y, p.X + o.X}
+}
+
 func (p Pos) String() string {
 	return fmt.Sprintf("{%d,%d}", p.X, p.Y)
 }
 
 type Positions []Pos
 
+func (p Positions) ExtentsArea() uint64 {
+	min, max := p.Extents()
+	dy := max.Y - min.Y + 1
+	dx := max.X - min.X + 1
+	return uint64(dy * dx)
+}
+
 func (p Positions) Extents() (Pos, Pos) {
 	var min, max Pos = p[0], p[0]
 	for i := 1; i < len(p); i++ {
 		o := p[i]
 		if o.Y < min.Y {
-			min = o
+			min.Y = o.Y
 		}
 		if o.X < min.X {
-			min = o
+			min.X = o.X
 		}
 		if o.Y > max.Y {
-			max = o
+			max.Y = o.Y
 		}
 		if o.X > max.X {
-			max = o
+			max.X = o.X
 		}
 	}
 	return min, max
@@ -187,6 +200,13 @@ func (v PosContainer) Has(p Pos) bool {
 		return b
 	}
 	return false
+}
+
+type PosMapper[T any] map[Pos]T
+
+func (v PosMapper[T]) Has(p Pos) bool {
+	_, e := v[p]
+	return e
 }
 
 type PosLinker map[Pos]Pos
