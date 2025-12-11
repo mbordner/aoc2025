@@ -19,19 +19,44 @@ const (
 // 186362000 too low
 
 func main() {
-	reds := getPositions("../data.txt")
+	reds := getPositions("../test1.txt")
+
+	border := getBorder(reds)
+
 	minRedsExtent, maxRedsExtent := reds.Extents()
 	//dy, dx, grid := getGrid(ps)
 	//fmt.Println(dy, dx, len(grid))
 	//grid.Print()
 
+	pairs := common.GetPairSets(reds)
+	maxArea := uint64(0)
+nextPair:
+	for _, pair := range pairs {
+
+		a, b := pair[0].X, pair[0].Y
+		c, d := pair[1].X, pair[1].Y
+
+		missingCorners := common.Positions{common.Pos{X: a, Y: d}, common.Pos{X: c, Y: b}}
+		for _, missing := range missingCorners {
+			if !inPolygon(border, pair, missing, minRedsExtent, maxRedsExtent) {
+				continue nextPair
+			}
+		}
+		area := missingCorners.ExtentsArea()
+		if area > maxArea {
+			maxArea = area
+		}
+
+	}
+
+	fmt.Println(maxArea)
+
 	numReds := len(reds)
-	border := getBorder(reds)
 
 	reds = append(reds, reds[0])
 	reds = append(reds, reds[1])
 
-	maxArea := uint64(0)
+	maxArea = uint64(0)
 
 	for r := 0; r < numReds; r++ {
 		lineArea := (common.Positions{reds[r], reds[r+1]}).ExtentsArea()
@@ -61,9 +86,18 @@ func inPolygon(border common.PosMapper[byte], corners common.Positions, missing,
 	dir := getDirVector(missing, corners[0])
 	crossedBorder := 0
 
+	on := false
 	for p := missing.Add(dir); inExtents(p, minE, maxE); p = p.Add(dir) {
 		if border.Has(p) {
-			crossedBorder++
+			if !on {
+				on = true
+				crossedBorder++
+				if border[p] == RED {
+					crossedBorder++
+				}
+			}
+		} else {
+			on = false
 		}
 	}
 
