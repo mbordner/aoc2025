@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"regexp"
 	"strconv"
+	"strings"
 )
 
 func PopulateStringCombinationsAtLength(results map[string]bool, pickChars string, prefix string, length int) {
@@ -187,11 +188,12 @@ func (ps PreviousState[S, Action]) Link(state S, prev S, action Action) {
 }
 
 func (ps PreviousState[S, Action]) GetActions(start S, goal S) []PrevLinkState[S, Action] {
-	actions := []PrevLinkState[S, Action]{{}}
-	for p := ps[goal]; p.prev != start; p = ps[p.prev] {
+	var actions []PrevLinkState[S, Action]
+	p := ps[goal]
+	for ; p.prev != start; p = ps[p.prev] {
 		actions = append([]PrevLinkState[S, Action]{p}, actions...)
 	}
-	return actions
+	return append([]PrevLinkState[S, Action]{p}, actions...)
 }
 
 type VisitedState[S comparable, V any] map[S]V
@@ -288,4 +290,27 @@ func IntVals[T Ints](strVals string) []T {
 		vals[i] = T(v)
 	}
 	return vals
+}
+
+func StrFromVals[T Ints](vals []T) string {
+	strs := make([]string, len(vals))
+	for i, v := range vals {
+		strs[i] = strconv.FormatInt(int64(v), 10)
+	}
+	return strings.Join(strs, ",")
+}
+
+func CloneVals[T any](vals []T) []T {
+	c := make([]T, len(vals))
+	copy(c, vals)
+	return c
+}
+
+func Reverse[T any](a []T) []T {
+	b := CloneVals(a)
+	lh := len(a) / 2
+	for i, j := 0, len(b)-1; i < lh; i, j = i+1, j-1 {
+		b[i], b[j] = b[j], b[i]
+	}
+	return b
 }
