@@ -2,6 +2,8 @@ package common
 
 import (
 	"fmt"
+	"regexp"
+	"strconv"
 )
 
 func PopulateStringCombinationsAtLength(results map[string]bool, pickChars string, prefix string, length int) {
@@ -174,6 +176,43 @@ func ConvertGrid(lines []string) Grid {
 	return grid
 }
 
+type PrevLinkState[S comparable, Action any] struct {
+	prev   S
+	action Action
+}
+type PreviousState[S comparable, Action any] map[S]PrevLinkState[S, Action]
+
+func (ps PreviousState[S, Action]) Link(state S, prev S, action Action) {
+	ps[state] = PrevLinkState[S, Action]{prev: prev, action: action}
+}
+
+func (ps PreviousState[S, Action]) GetActions(start S, goal S) []PrevLinkState[S, Action] {
+	actions := []PrevLinkState[S, Action]{{}}
+	for p := ps[goal]; p.prev != start; p = ps[p.prev] {
+		actions = append([]PrevLinkState[S, Action]{p}, actions...)
+	}
+	return actions
+}
+
+type VisitedState[S comparable, V any] map[S]V
+
+func (vs VisitedState[S, V]) Has(s S) bool {
+	_, e := vs[s]
+	return e
+}
+
+func (vs VisitedState[S, V]) Get(s S) V {
+	return vs[s]
+}
+
+func (vs VisitedState[S, V]) Remove(s S) {
+	delete(vs, s)
+}
+
+func (vs VisitedState[S, V]) Set(s S, v V) {
+	vs[s] = v
+}
+
 type Queue[T comparable] []T
 
 func (q *Queue[T]) Enqueue(s T) {
@@ -231,4 +270,22 @@ func Dedupe[T comparable](values []T) []T {
 		vs = append(vs, v)
 	}
 	return vs
+}
+
+var (
+	ReDigits = regexp.MustCompile(`\d+`)
+)
+
+type Ints interface {
+	int | int32 | int64 | uint | uint32 | uint64
+}
+
+func IntVals[T Ints](strVals string) []T {
+	tokens := ReDigits.FindAllString(strVals, -1)
+	vals := make([]T, len(tokens), len(tokens))
+	for i, t := range tokens {
+		v, _ := strconv.ParseInt(t, 10, 64)
+		vals[i] = T(v)
+	}
+	return vals
 }
