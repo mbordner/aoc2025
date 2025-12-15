@@ -1,11 +1,14 @@
 module github.com/mbordner/aoc2025
 
-go 1.23
+go 1.23.0
+
+toolchain go1.23.5
 
 require (
 	github.com/mbordner/memfs v1.0.3
 	github.com/pkg/errors v0.9.1
 	github.com/stretchr/testify v1.8.4
+	gonum.org/v1/gonum v0.16.0
 )
 
 require (
