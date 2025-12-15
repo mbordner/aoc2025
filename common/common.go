@@ -148,6 +148,15 @@ func (g Grid) Neighbors(x, y int) Positions {
 	return positions
 }
 
+func (g Grid) Clone() Grid {
+	o := make(Grid, len(g))
+	for y := range g {
+		o[y] = make([]byte, len(g[y]))
+		copy(o[y], g[y])
+	}
+	return o
+}
+
 func (g Grid) NeighborPositions(p Pos) Positions {
 	return g.Neighbors(p.X, p.Y)
 }
