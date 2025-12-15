@@ -23,6 +23,9 @@ var (
 // too high: 23115
 // not right answer: 16103
 // 16543 is not right
+// ? 14423
+// 14316 not right
+// 16613
 func main() {
 	machines := getData("../data.txt")
 
@@ -83,22 +86,12 @@ func (m *Machine) getAugmentedMatrix() [][]int64 {
 	return coefficients
 }
 
-func (m *Machine) freeVariablesInRange(presses []int64, freeVariables []int) bool {
-	for _, b := range freeVariables {
-		p := int(presses[b])
-		for _, j := range m.buttons[b] {
-			if p > m.jolts[j] {
-				return false
-			}
-		}
-	}
-	return true
-}
-
 func (m *Machine) fewestPressesToConfigure() int {
 
 	matrix := m.getAugmentedMatrix()
+	//fmt.Println(matrix)
 	matrixRREF := matrices.ToIntegerReducedEchelonForm(matrix)
+	//fmt.Println(matrixRREF)
 
 	// remove zero rows
 	for len(matrixRREF) > 0 {
@@ -157,7 +150,11 @@ func (m *Machine) fewestPressesToConfigure() int {
 		for b := len(m.buttons) - 1; b >= 0; b-- {
 			if expressions[b] != nil {
 				buttonVar := fmt.Sprintf("b%d", b)
-				input[buttonVar] = expressions[b].Eval(input)
+				var err error
+				input[buttonVar], err = expressions[b].Eval(input)
+				if err != nil {
+					panic(err)
+				}
 				presses[b] = input[buttonVar]
 			}
 		}
@@ -182,8 +179,8 @@ func (m *Machine) fewestPressesToConfigure() int {
 	queue := make(common.Queue[string], 0, 200)
 	visited := make(common.VisitedState[string, bool])
 
-	startPresses := make([]int, len(searchIndexes))
-	start := common.StrFromVals(startPresses)
+	startPresses := make([]int64, len(freeVariableColumns))
+	start := common.StrFromVals[int64](startPresses)
 
 	queue.Enqueue(start)
 	visited.Set(start, true)
@@ -193,7 +190,7 @@ func (m *Machine) fewestPressesToConfigure() int {
 	for !queue.Empty() {
 		cur := *(queue.Dequeue())
 		searched++
-		allPositive := true
+		validClickCount := true
 
 		vals := common.IntVals[int64](cur)
 		input := make(map[string]int64)
@@ -205,23 +202,22 @@ func (m *Machine) fewestPressesToConfigure() int {
 		for b := len(m.buttons) - 1; b >= 0; b-- {
 			if expressions[b] != nil {
 				buttonVar := fmt.Sprintf("b%d", b)
-				input[buttonVar] = expressions[b].Eval(input)
-				if input[buttonVar] < 0 {
-					allPositive = false
+				var err error
+				input[buttonVar], err = expressions[b].Eval(input)
+				if err != nil || input[buttonVar] < 0 {
+					validClickCount = false
+					break
 				}
 			}
 		}
 
-		presses := make([]int64, len(m.buttons))
-		for b := len(m.buttons) - 1; b >= 0; b-- {
-			buttonVar := fmt.Sprintf("b%d", b)
-			presses[b] = input[buttonVar]
-		}
-		if !m.freeVariablesInRange(presses, freeVariableColumns) {
-			continue
-		}
+		if validClickCount {
+			presses := make([]int64, len(m.buttons))
+			for b := len(m.buttons) - 1; b >= 0; b-- {
+				buttonVar := fmt.Sprintf("b%d", b)
+				presses[b] = input[buttonVar]
+			}
 
-		if allPositive {
 			pressesSum := array.SumNumbers(presses)
 			if minPresses == -1 || pressesSum < minPresses {
 				minPresses = pressesSum
@@ -232,6 +228,10 @@ func (m *Machine) fewestPressesToConfigure() int {
 		for i, v := range vals {
 			nextVals := common.CloneVals(vals)
 			nextVals[i] = v + 1
+
+			if int(nextVals[i]) > slices.Max(m.jolts) {
+				continue
+			}
 			next := common.StrFromVals(nextVals)
 			if !visited.Has(next) {
 				visited.Set(next, true)

@@ -89,7 +89,9 @@ func Test_Expressions(t *testing.T) {
 			assert.Nil(t, err)
 			assert.NotNil(t, p)
 
-			v := p.Eval(tc.input)
+			var e error
+			v, e := p.Eval(tc.input)
+			assert.Nil(t, e)
 
 			assert.Equal(t, tc.expected, v)
 

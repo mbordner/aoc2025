@@ -153,11 +153,11 @@ func (p *Parser) consume() {
 	p.start = p.end
 }
 
-func (p *Parser) Eval(vars map[string]int64) int64 {
+func (p *Parser) Eval(vars map[string]int64) (int64, error) {
 	if len(p.operands) == 1 {
 		switch v := p.operands[0].(type) {
 		case int64:
-			return v
+			return v, nil
 		case *Operator:
 			return v.Eval(vars)
 		}
@@ -166,7 +166,15 @@ func (p *Parser) Eval(vars map[string]int64) int64 {
 }
 
 func (p *Parser) EvalKnown(vars map[string]int64) (int64, error) {
-	return p.operands[0].(*Operator).EvalKnown(vars)
+	if len(p.operands) == 1 {
+		switch v := p.operands[0].(type) {
+		case int64:
+			return v, nil
+		case *Operator:
+			return v.EvalKnown(vars)
+		}
+	}
+	panic("invalid operands")
 }
 
 func (p *Parser) RootOperator() *Operator {

@@ -5,6 +5,7 @@ go 1.23.0
 toolchain go1.23.5
 
 require (
+	github.com/alex-ant/gomath v0.0.0-20160516115720-89013a210a82
 	github.com/mbordner/memfs v1.0.3
 	github.com/pkg/errors v0.9.1
 	github.com/stretchr/testify v1.8.4
