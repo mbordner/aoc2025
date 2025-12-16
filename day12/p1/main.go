@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/mbordner/aoc2025/common"
+	"github.com/mbordner/aoc2025/common/array"
 	"github.com/mbordner/aoc2025/common/array/bytes"
 	"github.com/mbordner/aoc2025/common/bits"
 	"github.com/mbordner/aoc2025/common/files"
@@ -14,18 +15,31 @@ import (
 func main() {
 	start := time.Now()
 
-	cc, presents, checks := calculateCollisions(parseData("../test1.txt"))
+	cc, presents, checks := calculateCollisions(parseData("../data.txt"))
 	fmt.Println(len(presents), "unique presents calculated")
 
 	count := 0
 
-	for _, check := range checks[2:] {
+	for _, check := range checks {
 		counter, _ := bits.NewCounterPack(check.presents) // initialize the counts needed for the required presents in the space (packed bit counters that can count up to 8 values)
-		w := check.w - 1
-		h := check.h - 1
-		if fits(cc, cc.getShapeIds(), NewGrid(w, h), w, counter, 0) {
+		needed := array.SumNumbers(counter.Values())
+		available := (check.w / 3) * (check.h / 3)
+		if needed <= available {
 			count++
+			fmt.Println("plenty of room:", check)
+			continue
+		} else {
+			fmt.Printf("needed: %d, available: %d (%s)\n", needed, available, check)
 		}
+
+		if needed <= available+10 {
+			w := check.w - 2
+			h := check.h - 2
+			if fits(cc, cc.getShapeIds(), NewGrid(w, h), w, counter, 0) {
+				count++
+			}
+		}
+
 	}
 
 	fmt.Printf("for %d tree spaces, we could fit all the presents under %d of them.\n", len(checks), count)
@@ -38,25 +52,35 @@ func fits(cc *CalculatedCollisions, shapeIds []ShapeID, g Grid, width int, count
 	//state := fmt.Sprintf("%s,%d,%d", g, counter, pos)
 	fit := false
 
-posLoop:
-	for ; pos < len(g); pos++ {
-		checkGrid := g.GetCheckGrid(width, pos) // get the current check grid view (3x3 grid of left, and above shapes)
-		for _, shapeId := range shapeIds {
-			presentId, _ := shapeId.Extract()                              // figure out which present we are checking
-			neededStill, _ := counter.GetCount(presentId)                  // check how many of this present we still need to fit
-			if neededStill > 0 && !cc.CheckCollision(shapeId, checkGrid) { // this shape fits here
-				newCounter, _ := counter.DecrementCount(presentId) // decrement the present's count which this shape orientation belongs
-				// note: the above call only changes counter if the present's id/counter index is > 0, i.e. neededStill was > 0
-				// and if after this, all the packed counters are zero, the overall 64bit int will be 0
-				if uint64(newCounter) == uint64(0) { // if we fit all the required shapes, we're done
-					fit = true
-					break posLoop
-				}
-				newGrid := g.Clone()   // clone a new grid for the DFS
-				newGrid[pos] = shapeId // set the fit shape in the new grid
-				if fits(cc, shapeIds, newGrid, width, newCounter, pos+1) {
-					fit = true // we can break out early since we know there is a configuration that fits
-					break posLoop
+	possible := true
+	numNeeded := array.SumNumbers(counter.Values())
+	if numNeeded > len(g)-pos {
+		possible = false
+	}
+
+	if possible {
+	posLoop:
+		for ; pos < len(g); pos++ {
+			checkGrid := g.GetCheckGrid(width, pos) // get the current check grid view (5x3 grid of placed shapes around pos. pos will be at 2,2 in this grid)
+			for _, shapeId := range shapeIds {
+				presentId, _ := shapeId.Extract()                              // figure out which present we are checking
+				neededStill, _ := counter.GetCount(presentId)                  // check how many of this present we still need to fit
+				if neededStill > 0 && !cc.CheckCollision(shapeId, checkGrid) { // this shape fits here
+					newCounter, _ := counter.DecrementCount(presentId) // decrement the present's count which this shape orientation belongs
+					newGrid := g.Clone()                               // clone a new grid for the DFS
+					newGrid[pos] = shapeId                             // set the fit shape in the new grid
+					// note: the above call only changes counter if the present's id/counter index is > 0, i.e. neededStill was > 0
+					// and if after this, all the packed counters are zero, the overall 64bit int will be 0
+					if uint64(newCounter) == uint64(0) { // if we fit all the required shapes, we're done
+						fit = true
+						fmt.Println("------")
+						newGrid.Print(width, cc)
+						break posLoop
+					}
+					if fits(cc, shapeIds, newGrid, width, newCounter, pos+1) {
+						fit = true // we can break out early since we know there is a configuration that fits
+						break posLoop
+					}
 				}
 			}
 		}
@@ -79,21 +103,52 @@ func (g Grid) String() string {
 	return strings.Join(vals, "")
 }
 
-func (g Grid) Print(width int) {
+// Print is a debugging function that converts this 1D grid to a 2D grid, draws all placed shapes, and prints it
+func (g Grid) Print(width int, cc *CalculatedCollisions) {
 	height := len(g) / width
+	gridRows := height + 2
+	gridCols := width + 2
+	grid := make(common.Grid, gridRows) // print grid is 2D
+	for y := 0; y < gridRows; y++ {
+		grid[y] = make([]byte, gridCols)
+		for x := 0; x < gridCols; x++ {
+			grid[y][x] = '.'
+		}
+	}
+	for p := range g {
+		if !g[p].Empty() {
+			shapeId := g[p]
+			shape := cc.getShape(shapeId)
+			presentId, _ := shapeId.Extract()
+			gy, gx := g.PosToRowCol(width, p)
+			for j, y := 0, gy; y < gy+3; j, y = j+1, y+1 {
+				for i, x := 0, gx; x < gx+3; i, x = i+1, x+1 {
+					if shape[j][i] != '.' {
+						// there is a non-empty place in this shape to print
+						presentIdStr := fmt.Sprintf("%d", presentId)
+						if grid[y][x] != '.' {
+							fmt.Println("oops, already a shape in this y,x position?")
+						}
+						grid[y][x] = presentIdStr[0]
+					}
+				}
+			}
+		}
+	}
 
+	grid.Print()
 }
 
-// GetCheckGrid returns a 3x3 grid of shape ids where p is represented by position 2,2; and positions 0,0 up to 2,2 set to the shapes set on g
+// GetCheckGrid returns a 5x3 grid of shape ids where p is represented by position 2,2; and positions 0,0 up to 2,2 set to the shapes set on g
 func (g Grid) GetCheckGrid(w, pos int) [][]ShapeID {
 	cg := make([][]ShapeID, 3)
 	for r := 0; r < 3; r++ {
-		cg[r] = make([]ShapeID, 3)
+		cg[r] = make([]ShapeID, 5)
 	}
 	row, col := g.PosToRowCol(w, pos)
-	for y, r := 2, row; r > row-3; y, r = y-1, r-1 {
-		for x, c := 2, col; c > col-3; x, c = x-1, c-1 {
-			if r >= 0 && c >= 0 {
+	for y, r := 2, row; r > row-3; y, r = y-1, r-1 { // y,x goes from 2,4 to 0,0
+		for x, c := 4, col+2; c > col-3; x, c = x-1, c-1 {
+			if r >= 0 && (c >= 0 && c < w) {
 				o := g.RowColToPos(w, r, c)
 				if g[o].Empty() == false {
 					cg[y][x] = g[o]
@@ -118,6 +173,7 @@ func (g Grid) Clone() Grid {
 	return o
 }
 
+// CheckCollision check pre-calculated collisions over the 5x3 grid passed in
 func (cc *CalculatedCollisions) CheckCollision(shapeId ShapeID, checkGrid [][]ShapeID) bool {
 	for y := range checkGrid {
 		for x := range checkGrid[y] {
@@ -167,7 +223,7 @@ type CollisionGridMap [][]map[ShapeID]bool // [row offset][col offset][other sha
 func NewCollisionGridMap() CollisionGridMap {
 	cgm := make([][]map[ShapeID]bool, 3)
 	for r := range cgm {
-		cgm[r] = make([]map[ShapeID]bool, 3)
+		cgm[r] = make([]map[ShapeID]bool, 5)
 		for c := range cgm[r] {
 			cgm[r][c] = make(map[ShapeID]bool)
 		}
@@ -189,6 +245,10 @@ func (cc *CalculatedCollisions) getShapeIds() []ShapeID {
 	return sids
 }
 
+func (cc *CalculatedCollisions) getShape(id ShapeID) Shape {
+	return cc.shapes[id]
+}
+
 func (cc *CalculatedCollisions) addShape(presentID int, shapeIndex int, shape Shape) {
 	var shapeId ShapeID
 	shapeId = shapeId.Pack(presentID, shapeIndex)
@@ -201,11 +261,11 @@ func (cc *CalculatedCollisions) calculateCollisions(sid, oid ShapeID) {
 	shapeO := cc.shapes[oid]
 
 	grid := common.ConvertGrid([]string{
-		`.....`,
-		`.....`,
-		`.....`,
-		`.....`,
-		`.....`,
+		`.......`,
+		`.......`,
+		`.......`,
+		`.......`,
+		`.......`,
 	})
 
 	shapeSCenterX, shapeSCenterY := 3, 3
@@ -216,7 +276,7 @@ func (cc *CalculatedCollisions) calculateCollisions(sid, oid ShapeID) {
 	}
 
 	for yOffset := 0; yOffset > -3; yOffset-- {
-		for xOffset := 0; xOffset > -3; xOffset-- {
+		for xOffset := 2; xOffset > -3; xOffset-- {
 			cc.collisions[sid][2+yOffset][2+xOffset][sid] = true           // always would collide with itself
 			cc.collisions[sid][2+yOffset][2+xOffset][EmptyShapeID] = false // never collide with empty shape
 
@@ -227,8 +287,8 @@ func (cc *CalculatedCollisions) calculateCollisions(sid, oid ShapeID) {
 				for g, i := 0, shapeOCenterX-1; i <= shapeOCenterX+1; g, i = g+1, i+1 {
 					if grid[j][i] != '.' {
 						if shapeO[h][g] == '#' {
-							collision = true // s centered at the lower corner of a 3x3 gird
-							// would collide with o if o was centered at -yOffset,-xOffset into this 3x3 grid
+							collision = true // s centered at 2,2 in the 5x3 gird
+							// would collide with o if o was centered at yOffset,xOffset into this 5x3 grid
 							break collisionCheck
 						}
 					}
@@ -281,6 +341,10 @@ type Check struct {
 	w        int
 	h        int
 	presents []int
+}
+
+func (c Check) String() string {
+	return fmt.Sprintf("%dx%d [%s]", c.w, c.h, common.StrFromVals(c.presents))
 }
 
 type Checks []Check
