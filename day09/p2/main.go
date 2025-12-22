@@ -2,12 +2,13 @@ package main
 
 import (
 	"fmt"
+	"sort"
+	"strconv"
+	"strings"
+
 	"github.com/mbordner/aoc2025/common"
 	"github.com/mbordner/aoc2025/common/files"
 	"github.com/mbordner/aoc2025/common/geom"
-	"slices"
-	"strconv"
-	"strings"
 )
 
 const (
@@ -17,95 +18,119 @@ const (
 )
 
 // 186362000 too low
+// 4618516475 too high... 4618516475 [{15930,83509} {84454,16111}] [{15930,16111} {84454,83509}]
 
 func main() {
-	reds := getPositions("../test1.txt")
+	reds := getPositions("../data.txt")
+	minRedsExtent, maxRedsExtent := reds.Extents()
 
 	border := getBorder(reds)
 
-	minRedsExtent, maxRedsExtent := reds.Extents()
-	//dy, dx, grid := getGrid(ps)
+	//dy, dx, grid := getGrid(reds)
 	//fmt.Println(dy, dx, len(grid))
 	//grid.Print()
 
 	pairs := common.GetPairSets(reds)
 	maxArea := uint64(0)
-nextPair:
-	for _, pair := range pairs {
+	var maxPair common.Positions
+	var maxPairMissing common.Positions
+	fmt.Println("len of pairs:", len(pairs))
 
+	//pairs = [][]common.Pos{{common.Pos{X: 15930, Y: 83509}, common.Pos{X: 84454, Y: 16111}}}
+	count := 0
+nextPair:
+	for p, pair := range pairs {
+		if p%100 == 0 {
+			fmt.Println("pair:", p, pair)
+		}
 		a, b := pair[0].X, pair[0].Y
 		c, d := pair[1].X, pair[1].Y
 
 		missingCorners := common.Positions{common.Pos{X: a, Y: d}, common.Pos{X: c, Y: b}}
 		for _, missing := range missingCorners {
-			if !inPolygon(border, pair, missing, minRedsExtent, maxRedsExtent) {
+			if !inPolygon(border, missing, minRedsExtent, maxRedsExtent) {
 				continue nextPair
 			}
 		}
+		count++
 		area := missingCorners.ExtentsArea()
 		if area > maxArea {
-			maxArea = area
-		}
-
-	}
-
-	fmt.Println(maxArea)
-
-	numReds := len(reds)
-
-	reds = append(reds, reds[0])
-	reds = append(reds, reds[1])
-
-	maxArea = uint64(0)
-
-	for r := 0; r < numReds; r++ {
-		lineArea := (common.Positions{reds[r], reds[r+1]}).ExtentsArea()
-		if lineArea > maxArea {
-			maxArea = lineArea
-		}
-		corners := common.Positions{reds[r], reds[r+1], reds[r+2]}
-		missing := completeRectangle(corners)
-		if inPolygon(border, corners, missing, minRedsExtent, maxRedsExtent) {
-			corners = append(corners, missing)
-			area := corners.ExtentsArea()
-			if area > maxArea {
+			corners := common.Positions{pair[0], pair[1], missingCorners[0], missingCorners[1]}
+			sort.Slice(corners, func(i, j int) bool {
+				if corners[i].X < corners[j].X {
+					return true
+				}
+				if corners[i].Y < corners[j].Y {
+					return true
+				}
+				return false
+			})
+			corners[2], corners[3] = corners[3], corners[2]
+			if borderInPolygon(border, corners, minRedsExtent, maxRedsExtent) {
 				maxArea = area
+				maxPair = pair
+				maxPairMissing = missingCorners
 			}
 		}
+
 	}
 
-	fmt.Println(maxArea)
+	fmt.Println(count)
+	fmt.Println(maxArea, maxPair, maxPairMissing)
 
 }
 
-func inPolygon(border common.PosMapper[byte], corners common.Positions, missing, minE, maxE common.Pos) bool {
+func borderInPolygon(border common.PosMapper[byte], corners common.Positions, minE, maxE common.Pos) bool {
+	if corners[0] == corners[1] && corners[2] == corners[3] {
+		return true
+	}
+	cs := make(common.Positions, len(corners)+1)
+	copy(cs, corners)
+	cs[4] = corners[0]
+	for i := 0; i < len(corners); i++ {
+		dir := getDirVector(cs[i], cs[i+1])
+		for p := cs[i].Add(dir); p != cs[i+1]; p = p.Add(dir) {
+			if !inPolygon(border, p, minE, maxE) {
+				return false
+			}
+		}
+	}
+	return true
+}
+
+var memo = make(map[common.Pos]bool)
+
+func inPolygon(border common.PosMapper[byte], missing, minE, maxE common.Pos) bool {
 	if border.Has(missing) {
 		return true
 	}
 
-	dir := getDirVector(missing, corners[0])
-	crossedBorder := 0
+	if v, e := memo[missing]; e {
+		return v
+	}
 
-	on := false
-	for p := missing.Add(dir); inExtents(p, minE, maxE); p = p.Add(dir) {
-		if border.Has(p) {
-			if !on {
-				on = true
-				crossedBorder++
-				if border[p] == RED {
-					crossedBorder++
-				}
+	dirs := common.Positions{common.Pos{X: 1}, common.Pos{X: -1}, common.Pos{Y: 1}, common.Pos{Y: -1}}
+
+	inside := true
+
+	for _, dir := range dirs {
+		hitBorder := false
+		for p := missing.Add(dir); inExtents(p, minE, maxE); p = p.Add(dir) {
+			v, e := memo[p]
+			if (e && v) || border.Has(p) {
+				hitBorder = true
+				break
 			}
-		} else {
-			on = false
+		}
+		if !hitBorder {
+			inside = false
+			break
 		}
 	}
 
-	if crossedBorder%2 == 0 {
-		return false
-	}
+	memo[missing] = inside
 
-	return true
+	return inside
 }
 
 func inExtents(p, minE, maxE common.Pos) bool {
@@ -115,15 +140,6 @@ func inExtents(p, minE, maxE common.Pos) bool {
 		}
 	}
 	return false
-}
-
-func completeRectangle(ps common.Positions) common.Pos {
-	t1 := common.Pos{X: ps[0].X, Y: ps[2].Y}
-	t2 := common.Pos{X: ps[2].X, Y: ps[0].Y}
-	if slices.Contains(ps, t2) {
-		return t1
-	}
-	return t2
 }
 
 func getBorder(reds common.Positions) common.PosMapper[byte] {
